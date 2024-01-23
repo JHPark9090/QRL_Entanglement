@@ -138,6 +138,7 @@ def get_model(n_qubits, n_layers, n_output, data_reupload, return_val=True, retu
     
     return model
 
+runtime = 0
 
 class QuantumDQN(nn.Module):
     def __init__(self, n_qubits, n_actions, n_layers, w_input, w_output, data_reupload, device, path):
@@ -184,6 +185,7 @@ class QuantumDQN(nn.Module):
         outputs = []
         ED = []  # Effective Dimension
         state = []  # Quantum states
+        global runtime
         
         for i in range(batch_size):
             input_i = inputs[i]  # Get the i-th input in the batch
@@ -206,9 +208,11 @@ class QuantumDQN(nn.Module):
             state.append(state_i)
 
         outputs = torch.stack(outputs)  # Stack outputs along the batch dimension
+        runtime += 1 
+
         ED_out.append(ED)
         state_out.append(state)
-        torch.save({"ED_out": ED_out, "state_out": state_out}, self.path)
+        torch.save({"ED_out": ED_out, "state_out": state_out}, os.path.join(self.path, f"metric_checkpoint_{runtime}.pth"))
 
         if self.w_output2 is not None:
             if not isinstance(self.w_output2, torch.Tensor):
@@ -277,6 +281,7 @@ class QuantumQRDQN(nn.Module):
         outputs = []
         ED = []  # Effective Dimension
         state = []  # Quantum states
+        global runtime
         
         for i in range(batch_size):
             input_i = inputs[i]  # Get the i-th input in the batch
@@ -299,9 +304,11 @@ class QuantumQRDQN(nn.Module):
             state.append(state_i)
 
         outputs = torch.stack(outputs)  # Stack outputs along the batch dimension
+        runtime += 1 
+
         ED_out.append(ED)
         state_out.append(state)
-        torch.save({"ED_out": ED_out, "state_out": state_out}, self.path)
+        torch.save({"ED_out": ED_out, "state_out": state_out}, os.path.join(self.path, f"metric_checkpoint_{runtime}.pth"))
 
         if self.w_output2 is not None:
             if not isinstance(self.w_output2, torch.Tensor):
@@ -374,6 +381,7 @@ class QuantumRainbow(nn.Module):
         outputs = []
         ED = []  # Effective Dimension
         state = []  # Quantum states
+        global runtime
         
         for i in range(batch_size):
             input_i = inputs[i]  # Get the i-th input in the batch
@@ -396,9 +404,11 @@ class QuantumRainbow(nn.Module):
             state.append(state_i)
 
         outputs = torch.stack(outputs)  # Stack outputs along the batch dimension
+        runtime += 1 
+
         ED_out.append(ED)
         state_out.append(state)
-        torch.save({"ED_out": ED_out, "state_out": state_out}, self.path)
+        torch.save({"ED_out": ED_out, "state_out": state_out}, os.path.join(self.path, f"metric_checkpoint_{runtime}.pth"))
 
         if self.w_output2 is not None:
             if not isinstance(self.w_output2, torch.Tensor):
@@ -423,12 +433,30 @@ class QuantumRainbow(nn.Module):
         
         
 log_path = f'log_{args.log_num}/PennyLane_{args.task}_{args.model}'
-metric_checkpoint_path = os.path.join(log_path, "metric_checkpoint.pth")
-    
-    
+metric_checkpoint_path = f'{log_path}/metric_checkpoint'
+
+# List all files in the directory
 if args.resume:
-    if os.path.exists(metric_checkpoint_path):
-        checkpoint = torch.load(metric_checkpoint_path)
+    files = os.listdir(metric_checkpoint_path)
+    # Initialize variables to store the maximum number and corresponding file name
+    max_number = -1
+    max_file = ""
+    # Iterate through the files
+    for file in files:
+        if file.startswith("metric_checkpoint_") and file.endswith(".pth"):
+            # Extract the number from the file name
+            try:
+                number = int(file.split("_")[2].split(".")[0])
+                if number > max_number:
+                    max_number = number
+                    max_file = file
+            except ValueError:
+                continue
+    maxfile_path = f"{metric_checkpoint_path}/{max_file}"
+
+if args.resume:
+    if os.path.exists(maxfile_path):
+        checkpoint = torch.load(maxfile_path)
         ED_out = checkpoint["ED_out"]     # Load Effective Dimension
         state_out = checkpoint["state_out"]     # Load Quantum States
         print("Successfully restored Effective Dimension & Quantum States")
